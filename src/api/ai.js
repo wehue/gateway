@@ -1,4 +1,5 @@
 import instance from '@/utils/request'
+import instance_fabric from '@/utils/request_fabric'
 import axios from 'axios'
 
 // 创建专用于AI请求的axios实例
@@ -80,7 +81,7 @@ export function checkApiHealth() {
 }
 
 //传给后端资源数据如CPU温度，内存使用率，磁盘使用率，网络使用率等数据
-// 保存AI输入（表单：application/x-www-form-urlencoded）
+// 保存AI输入
 // 对应文档：POST /admin/aiInput/saveAiInput
 // 参数：dataType(string)、dataValue(string)、deviceId(integer)
 export function saveAiInput({ dataType, dataValue, deviceId }) {
@@ -108,6 +109,41 @@ export function saveAiWarn({ anomalyProblem, predictedFailure }) {
     url: '/aiWarn/saveAiWarn',
     method: 'post',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    data: form,
+  })
+}
+
+//区块链部分
+//保存AI资源安全报告
+//接口：POST /report/addResourceReport
+//参数：id  reportName  gatewayName  content   reportTime
+export function saveResourceReport({ id, reportName, gatewayName, content, reportTime }) {
+  const form = new URLSearchParams()
+  form.append('id', id ?? '')
+  form.append('reportName', reportName ?? '')
+  form.append('gatewayName', gatewayName ?? '')
+  form.append('content', content ?? '')
+  form.append('reportTime', reportTime ?? '')
+  return instance_fabric({
+    url: '/report/addResourceReport',
+    method: 'post',
+    data: form,
+  })
+}
+
+//保存AI流量威胁报告
+//接口：POST /report/addTrafficReport
+//参数：id  reportName  gatewayName  content   reportTime
+export function saveTrafficReport({ id, reportName, gatewayName, content, reportTime }) {
+  const form = new URLSearchParams()
+  form.append('id', id ?? '')
+  form.append('reportName', reportName ?? '')
+  form.append('gatewayName', gatewayName ?? '')
+  form.append('content', content ?? '')
+  form.append('reportTime', reportTime ?? '')
+  return instance_fabric({
+    url: '/report/addTrafficReport',
+    method: 'post',
     data: form,
   })
 }

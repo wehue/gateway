@@ -390,7 +390,7 @@ const initMap = () => {
   left: 50%;
   transform: translateX(-50%);
   color: #1affff;
-  font-size: 30px;
+  font-size: 1.5rem;
   z-index: 1;
   text-shadow: 0 0 10px rgba(26, 255, 255, 0.6);
   font-weight: bold;
