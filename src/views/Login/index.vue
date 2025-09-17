@@ -1,10 +1,9 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-// import { getCaptcha, login } from '@/api/login.js'！！！！！！！！！！！！！！！！！
+import { getCaptcha, login } from '@/api/login.js'
 import { useUserStore } from '@/stores/modules/user'
 import { ElMessage } from 'element-plus'
-import { useCaptcha } from './components/useCaptcha.js'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -12,43 +11,40 @@ const userStore = useUserStore()
 // 当前选择的身份
 const currentRole = ref('管理员')
 
-// 导入验证码功能（待删除）
-const { captchaImg, captchaCode, generateCaptcha, validateCaptcha } = useCaptcha()
-
-// ==================== 真实接口验证码处理 ====================
-// 如果需要使用真实接口，请取消注释下面的代码，并注释掉上面的 useCaptcha 导入
-
 // 真实验证码相关变量
-// const captchaImg = ref('')
-// const captchaCode = ref('')
+const captchaImg = ref('')
+const captchaKey = ref('')
 
-// 真实验证码获取函数
-// const generateCaptcha = async () => {
-//   try {
-//     const result = await getCaptcha()
-//
-//     if (result.success) {
-//       captchaImg.value = result.data.image
-//       captchaCode.value = result.data.id
-//     } else {
-//       ElMessage.error(result.message)
-//     }
-//   } catch (error) {
-//     console.error('获取验证码失败:', error)
-//     ElMessage.error('获取验证码失败')
-//   }
-// }
+// 获取图形验证码
+const generateCaptcha = async () => {
+  try {
+    const result = await getCaptcha()
+    console.log(result);
+
+    // 兼容后端返回结构，正确赋值图片和key
+    if (result.data && result.data.code === 200 && result.data.data) {
+      captchaImg.value = result.data.data.image
+      captchaKey.value = result.data.data.key
+    } else {
+      ElMessage.error(result.data?.message || result.message || '获取验证码失败')
+    }
+  } catch (error) {
+    console.error('获取验证码失败:', error)
+    ElMessage.error('获取验证码失败')
+  }
+}
 
 // 真实验证码验证函数
-// const validateCaptcha = (inputCaptcha) => {
-//   return inputCaptcha === captchaCode.value
-// }
+const validateCaptcha = (inputCaptcha) => {
+  return inputCaptcha === captchaCode.value
+}
 
 // 表单数据
 const loginForm = ref({
   username: '', // 用户名/学号
   password: '', // 密码
-  captcha: '', // 图形验证码
+  captchaCode: '', // 用户输入的验证码
+  captchaKey: '', // 验证码key
 })
 
 // 表单验证规则
@@ -59,9 +55,9 @@ const rules = {
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '长度在6到20个字符', trigger: 'blur' },
+    { min: 4, max: 20, message: '长度在4到20个字符', trigger: 'blur' },
   ],
-  captcha: [
+  captchaCode: [
     { required: true, message: '请输入验证码', trigger: 'blur' },
     { len: 4, message: '验证码长度应为4位', trigger: 'blur' },
   ],
@@ -70,73 +66,41 @@ const rules = {
 // 表单ref
 const loginFormRef = ref(null)
 
-// ==================== 当前使用的登录处理（假接口）待删除 ====================
-// 登录处理
+// 真实登录处理
 const handleLogin = () => {
   loginFormRef.value?.validate(async (valid) => {
     if (!valid) return
-
-    // 验证码校验
-    // if (!validateCaptcha(loginForm.captcha)) {
-    //   ElMessage.error('验证码不正确')
-    //   generateCaptcha()
-    //   loginForm.captcha = ''
-    //   return
-    // }
-
     try {
-      // 直接模拟登录成功，不调用API
-      userStore.setToken('mock-token-' + Date.now())
-      userStore.setUserInfo(loginForm.username || '测试用户', currentRole.value)
-
-      // 登录成功后跳转到首页
-      router.push('/')
-      ElMessage.success('登录成功')
+      loginForm.value.captchaKey = captchaKey.value
+      const params = {
+        username: loginForm.value.username,
+        password: loginForm.value.password,
+        captchaKey: loginForm.value.captchaKey,
+        captchaCode: loginForm.value.captchaCode,
+      }
+      const result = await login(params)
+      // 兼容后端返回结构
+      if (result.data && result.data.code === 200) {
+        // 假设 data.data 是 token
+        const token = result.data.data
+        userStore.setToken(token)
+        // 你可以根据需要设置用户信息
+        // userStore.setUserInfo(loginForm.value.username, currentRole.value)
+        router.push('/')
+        ElMessage.success('登录成功')
+      } else {
+        ElMessage.error(result.data?.message || '登录失败')
+        generateCaptcha()
+        loginForm.value.captchaCode = ''
+      }
     } catch (error) {
       console.error('登录失败:', error)
-      ElMessage.error('登录失败，请检查账号、密码')
+      ElMessage.error('登录失败，请稍后再试')
       generateCaptcha()
-      loginForm.captcha = ''
+      loginForm.value.captchaCode = ''
     }
   })
 }
-
-// ==================== 真实接口登录处理 ====================
-// 真实登录处理
-// const handleLogin = () => {
-//   loginFormRef.value?.validate(async (valid) => {
-//     if (!valid) return
-//
-//     try {
-//       // 调用真实登录接口
-//       const result = await login(loginForm)
-//
-//       if (result.success) {
-//         // 登录成功处理
-//         const { token, userInfo } = result.data
-//
-//         // 保存token和用户信息
-//         userStore.setToken(token)
-//         userStore.setUserInfo(userInfo.username || userInfo.name, userInfo.role || currentRole.value)
-//
-//         // 登录成功后跳转到首页
-//         router.push('/')
-//         ElMessage.success('登录成功')
-//       } else {
-//         // 登录失败处理
-//         ElMessage.error(result.message)
-//         generateCaptcha()
-//         loginForm.captcha = ''
-//       }
-//     } catch (error) {
-//       console.error('登录失败:', error)
-//       ElMessage.error('登录失败，请稍后再试')
-//       generateCaptcha()
-//       loginForm.captcha = ''
-//     }
-//   })
-// }
-
 // 退出登录方法
 const handleLogout = () => {
   localStorage.removeItem('userRole')
@@ -145,23 +109,16 @@ const handleLogout = () => {
 
 // 监听身份切换并清空表单
 watch(currentRole, () => {
-  // 重置表单数据
-  loginForm.username = ''
-  loginForm.password = ''
-  loginForm.captcha = ''
-
-  // 重置表单校验状态
+  loginForm.value.username = ''
+  loginForm.value.password = ''
+  loginForm.value.captchaCode = ''
   loginFormRef.value?.resetFields()
-
-  // 重新获取验证码
   generateCaptcha()
 })
 
-// 组件挂载时获取验证码，并检查是否需要显示登录提示
+// 组件挂载时获取验证码
 onMounted(() => {
   generateCaptcha()
-
-  // 检查路由参数，如果有showLoginMessage参数，显示登录提示
   if (router.currentRoute.value.params.showLoginMessage) {
     ElMessage.warning('请先登录')
   }
@@ -203,9 +160,9 @@ onMounted(() => {
             />
           </el-form-item>
 
-          <el-form-item label="验证码" prop="captcha">
+          <el-form-item label="验证码" prop="captchaCode">
             <div class="captcha-container">
-              <el-input v-model="loginForm.captcha" placeholder="请输入验证码" />
+              <el-input v-model="loginForm.captchaCode" placeholder="请输入验证码" />
               <img
                 :src="captchaImg"
                 class="captcha-img"

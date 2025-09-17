@@ -9,57 +9,16 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
 import { geoCoordMap } from '@/utils/nation.js' // 导入包含城市经纬度的映射
+import chinaGeoJson from '@/views/Layout/component/js/map/china.js'
 
 const chinaMap = ref(null)
 let myChart = null
 
 onMounted(() => {
-  // 确保 echarts 先被设置为全局变量
+  echarts.registerMap('china', chinaGeoJson)
   window.echarts = echarts
-  // 动态加载中国地图数据
-  loadChinaMap().then(() => {
-    initMap()
-  })
+  initMap()
 })
-
-// 动态加载中国地图数据
-const loadChinaMap = () => {
-  return new Promise((resolve, reject) => {
-    try {
-      // 检查是否已经加载过地图数据
-      if (window.echarts && window.echarts.getMap('china')) {
-        console.log('中国地图数据已加载')
-        resolve()
-        return
-      }
-
-      // 使用动态导入方式加载地图数据
-      import('@/views/Layout/component/js/map/china.js')
-        .then(() => {
-          console.log('中国地图数据加载成功')
-          resolve()
-        })
-        .catch((error) => {
-          console.error('中国地图数据加载失败:', error)
-          // 尝试使用script标签方式加载
-          const script = document.createElement('script')
-          script.src = './src/views/Layout/component/js/map/china.js'
-          script.onload = () => {
-            console.log('通过script标签加载中国地图数据成功')
-            resolve()
-          }
-          script.onerror = (err) => {
-            console.error('通过script标签加载中国地图数据失败:', err)
-            reject(err)
-          }
-          document.head.appendChild(script)
-        })
-    } catch (error) {
-      console.error('加载地图数据时出错:', error)
-      reject(error)
-    }
-  })
-}
 
 onBeforeUnmount(() => {
   // 组件销毁时释放图表实例

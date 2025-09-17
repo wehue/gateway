@@ -1,82 +1,60 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { getTrafficReports, getResourceReports } from '@/api/fabric'
 
 // 路由
 const router = useRouter()
 
-//表格数据
-const reportList = ref([
-  {
-    id: '1',
-    name: 'DDoS攻击分析报告',
-    date: '2025-07-13 14:30',
-    gateway: 'Gateway-A1',
-    fileUrl: '/reports/DDoS_Report_2025_07_13.pdf',
-  },
-  {
-    id: '2',
-    name: '恶意软件传播报告',
-    date: '2025-07-14 09:45',
-    gateway: 'Gateway-A1',
-    fileUrl: '/reports/Malware_Spread_2025_07_14.pdf',
-  },
-  {
-    id: '3',
-    name: '钓鱼攻击警报',
-    date: '2025-07-14 16:20',
-    gateway: 'Gateway-A1',
-    fileUrl: '/reports/Phishing_Alert_2025_07_14.docx',
-  },
-  {
-    id: '4',
-    name: '暴力破解尝试报告',
-    date: '2025-07-15 11:15',
-    gateway: 'Gateway-A1',
-    fileUrl: '/reports/Brute_Force_Attempt_2025_07_15.xlsx',
-  },
-  {
-    id: '5',
-    name: 'SQL注入攻击报告',
-    date: '2025-07-16 15:30',
-    gateway: 'Gateway-A1',
-    fileUrl: '/reports/SQL_Injection_2025_07_16.pdf',
-  },
-  {
-    id: '6',
-    name: 'SQL注入攻击报告',
-    date: '2025-07-16 15:30',
-    gateway: 'Gateway-A1',
-    fileUrl: '/reports/SQL_Injection_2025_07_16.pdf',
-  },
-  {
-    id: '7',
-    name: 'SQL注入攻击报告',
-    date: '2025-07-16 15:30',
-    gateway: 'Gateway-A1',
-    fileUrl: '/reports/SQL_Injection_2025_07_16.pdf',
-  },
-  {
-    id: '8',
-    name: 'SQL注入攻击报告',
-    date: '2025-07-16 15:30',
-    gateway: 'Gateway-A1',
-    fileUrl: '/reports/SQL_Injection_2025_07_16.pdf',
-  },
-])
+// 切换类型（资源安全报告和流量安全报告）
+const activeType = ref('traffic')
+
+// 当前展示的报告列表
+const currentReportList = computed(() => {
+  return activeType.value === 'traffic' ? trafficReports.value : resourceReports.value
+})
+
+// 流量安全报告数据
+const trafficReports = ref([])
+
+// 资源安全报告数据
+const resourceReports = ref([])
+
+const  fetchReports = async () => {
+  try {
+    // 获取流量安全报告
+    const resTraffic = await getTrafficReports()
+    console.log(resTraffic);
+
+    if (resTraffic && resTraffic.data && Array.isArray(resTraffic.data.data)) {
+      trafficReports.value = resTraffic.data.data
+    }
+
+    // 获取资源安全报告
+    const resResource = await getResourceReports()
+    console.log(resResource);
+    if (resResource && resResource.data && Array.isArray(resResource.data.data)) {
+      resourceReports.value = resResource.data.data
+    }
+  } catch (e) {
+    ElMessage.error('报告数据获取失败')
+  }
+}
+
+
+
 
 // 分页设置
 const currentPage = ref(1)
-const pageSize = ref(6) // 确保每页显示5条数据
+const pageSize = ref(5) // 每页显示5条
 
-// 计算分页后的报告，不足6条时用空行填充
+// 计算分页后的报告，不足5条时用空行填充
 const paginatedReports = computed(() => {
   const startIndex = (currentPage.value - 1) * pageSize.value
   const endIndex = startIndex + pageSize.value
-  const reports = reportList.value.slice(startIndex, endIndex)
-
-  // 如果数据不足6条，用空行填充
+  const reports = currentReportList.value.slice(startIndex, endIndex)
+  // 如果数据不足5条，用空行填充
   const emptyRows = []
   for (let i = reports.length; i < pageSize.value; i++) {
     emptyRows.push({
@@ -88,13 +66,17 @@ const paginatedReports = computed(() => {
       fileUrl: '',
     })
   }
-
   return [...reports, ...emptyRows]
 })
 
 // 处理分页变化
 const handleCurrentChange = (page) => {
   currentPage.value = page
+}
+
+// 切换类型时重置分页（el-tabs专用）
+const handleTypeChange = () => {
+  currentPage.value = 1
 }
 
 // 获取行的类名，用于标识空白行
@@ -107,20 +89,25 @@ const downloadReport = (report) => {
   // 模拟下载过程
   ElMessage({
     type: 'success',
-    message: `正在下载报告: ${report.name}`,
+    message: `正在下载报告: ${report.name || report.reportName}`,
     duration: 2000,
   })
 
   setTimeout(() => {
     const link = document.createElement('a')
-    link.href = report.fileUrl
-    link.setAttribute('download', report.name)
+    link.href = report.fileUrl || '#'
+    link.setAttribute('download', report.name || report.reportName)
     link.setAttribute('target', '_blank')
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
   }, 500)
 }
+
+
+onMounted(() => {
+  fetchReports()
+})
 </script>
 
 <template>
@@ -138,54 +125,53 @@ const downloadReport = (report) => {
       </div>
       <!-- 表格边框 -->
       <div class="cyber-container">
+        <!-- 切换tab区域 -->
+        <el-tabs v-model="activeType" @tab-click="handleTypeChange" class="report-type-tabs" style="margin-bottom:1vw;">
+          <el-tab-pane label="流量安全报告" name="traffic"></el-tab-pane>
+          <el-tab-pane label="资源安全报告" name="resource"></el-tab-pane>
+        </el-tabs>
         <!-- 报告列表 -->
         <div class="report-list">
-          <div v-if="paginatedReports.length === 0" class="no-data">
-            <p>暂无匹配的报告数据</p>
-          </div>
-
-          <div v-else class="report-table">
-            <el-table
-              :data="paginatedReports"
-              style="width: 100%"
-              class="cyber-table"
-              stripe
-              :highlight-current-row="false"
-              :cell-style="{ backgroundColor: 'transparent' }"
-              :row-style="{ backgroundColor: 'transparent' }"
-              :row-class-name="getRowClassName"
-            >
-              <el-table-column label="序号" width="200" align="center">
-                <template #default="scope">
-                  <span v-if="!scope.row.isEmpty">{{
-                    (currentPage - 1) * pageSize + scope.$index + 1
-                  }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="date" label="时间" width="300" align="center">
-                <template #default="scope">
-                  <span v-if="!scope.row.isEmpty">{{ scope.row.date }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="name" label="报告名称" min-width="200" align="center">
-                <template #default="scope">
-                  <span v-if="!scope.row.isEmpty">{{ scope.row.name }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column prop="gateway" label="所属网关" min-width="220" align="center">
-                <template #default="scope">
-                  <span v-if="!scope.row.isEmpty">{{ scope.row.gateway }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="操作" width="200" align="center">
-                <template #default="scope">
-                  <div v-if="!scope.row.isEmpty" class="download-btn-container">
-                    <a class="download-btn" @click="downloadReport(scope.row)"> 下载查看 </a>
-                  </div>
-                </template>
-              </el-table-column>
-            </el-table>
-          </div>
+          <el-table
+            :data="paginatedReports"
+            style="width: 100%"
+            class="cyber-table"
+            stripe
+            :highlight-current-row="false"
+            :cell-style="{ backgroundColor: 'transparent' }"
+            :row-style="{ backgroundColor: 'transparent' }"
+            :row-class-name="getRowClassName"
+          >
+            <el-table-column label="序号" width="200" align="center">
+              <template #default="scope">
+                <span v-if="!scope.row.isEmpty">{{
+                  (currentPage - 1) * pageSize + scope.$index + 1
+                }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="date" label="时间" width="300" align="center">
+              <template #default="scope">
+                <span v-if="!scope.row.isEmpty">{{ scope.row.date }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="name" label="报告名称" min-width="200" align="center">
+              <template #default="scope">
+                <span v-if="!scope.row.isEmpty">{{ scope.row.name }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column prop="gateway" label="所属网关" min-width="220" align="center">
+              <template #default="scope">
+                <span v-if="!scope.row.isEmpty">{{ scope.row.gateway }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="操作" width="200" align="center">
+              <template #default="scope">
+                <div v-if="!scope.row.isEmpty" class="download-btn-container">
+                  <a class="download-btn" @click="downloadReport(scope.row)"> 下载查看 </a>
+                </div>
+              </template>
+            </el-table-column>
+          </el-table>
 
           <!-- 分页控件 -->
           <div class="pagination-container">
@@ -193,7 +179,7 @@ const downloadReport = (report) => {
               v-model="currentPage"
               :page-size="pageSize"
               layout="prev, pager, next"
-              :total="reportList.length"
+              :total="currentReportList.length"
               @current-change="handleCurrentChange"
               background
             />
@@ -426,6 +412,11 @@ const downloadReport = (report) => {
   color: #00e0db !important;
   border-bottom: 2px solid rgba(0, 224, 219, 0.5) !important;
   font-size: 21px !important;
+}
+
+.report-type-tabs {
+  margin-bottom: 1vw;
+  /* 可根据需要调整tab样式 */
 }
 
 @media (max-width: 900px) {

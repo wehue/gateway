@@ -1,5 +1,4 @@
 import { fileURLToPath, URL } from 'node:url'
-
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
@@ -34,7 +33,7 @@ export default defineConfig({
     },
     proxy: {
       '/admin': {
-        target: 'https://9fe19dadc136.ngrok-free.app',
+        target: 'https://4ba35589722c.ngrok-free.app',
         changeOrigin: true,
         secure: false,
         ws: true,
@@ -55,6 +54,11 @@ export default defineConfig({
             console.log('Received Response from the Target:', proxyRes.statusCode, req.url)
           })
         },
+      },
+      '/report': {
+        target: 'https://4ba35589722c.ngrok-free.app',
+        changeOrigin: true,
+        secure: false,
       },
     },
   },

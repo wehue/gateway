@@ -189,9 +189,7 @@ onMounted(() => {
               <div class="user-icon"></div>
               <div class="user-text">
                 <span class="username">{{ userStore.username }}</span>
-                <span class="role-text">{{
-                  userStore.role === '超级管理员' ? '超级管理员' : '用户'
-                }}</span>
+                <span class="role-text">{{ userStore.role }}用户</span>
               </div>
             </div>
           </div>

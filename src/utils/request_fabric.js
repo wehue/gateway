@@ -4,14 +4,13 @@ import router from '@/router'
 import { ElMessage } from 'element-plus'
 
 //基地址:后端主机地址
-const baseURL = 'https://46312fcbe0f4.ngrok-free.app'
+const baseURL = 'https://4ba35589722c.ngrok-free.app'
 
 const instance = axios.create({
   baseURL,
   timeout: 100000,
   headers: {
     'ngrok-skip-browser-warning': 'true',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
   },
 })
 

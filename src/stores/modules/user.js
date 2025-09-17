@@ -16,7 +16,8 @@ export const useUserStore = defineStore(
 
     //定义登录方法
     const setToken = (t) => {
-      token.value = t // 设置 token并将token保存到本地存储中
+      token.value = t // 设置 token
+      localStorage.setItem('token', t) // 同步保存到本地存储
     }
 
     // 设置用户信息
@@ -34,6 +35,7 @@ export const useUserStore = defineStore(
     //定义退出方法
     const reomveToken = () => {
       token.value = ''
+      localStorage.removeItem('token') // 清除本地存储
       // 清空用户信息
       username.value = '管理员'
       role.value = '管理员'
