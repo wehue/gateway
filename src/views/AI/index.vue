@@ -2,7 +2,7 @@
 import { ref, onMounted, nextTick, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import MarkdownIt from 'markdown-it'
-import { streamChatWithAI, checkApiHealth, saveAiInput, saveAiWarn } from '@/api/ai'
+import { streamChatWithAI, checkApiHealth, saveAiInput, saveAiWarn,saveResourceReport } from '@/api/ai'
 import { useRoute } from 'vue-router'
 
 // 获取路由参数
@@ -30,7 +30,7 @@ const streamingContent = ref('')
 const controller = ref(null)
 const errorDisplayed = ref(false)
 const hasReceivedData = ref(false)
-const currentMessageType = ref('') // 普通/solution 等类型，用于定制样式
+const currentMessageType = ref('')
 const isAutoScroll = ref(true)
 const chatContainer = ref(null)
 const lastScrollTop = ref(0)
@@ -46,7 +46,7 @@ const alertContent = ref({
   predictions: '',
 })
 
-// 记录第一条“分析类”回答中的风险内容（异常问题 + 故障预测）
+// 记录第一条"分析类"回答中的风险内容（异常问题 + 故障预测）
 const analysisProblems = ref('')
 const analysisPredictions = ref('')
 
@@ -163,7 +163,7 @@ const sendMessage = () => {
   }
   messages.value.push(userMsg)
 
-  // 如果是从资源页带来的“网关中xxx为xxx，…”格式，则保存AI输入
+  // 如果是从资源页带来的"网关中xxx为xxx，…"格式，则保存AI输入
   trySaveAiInput(newMessage.value)
 
   // 检查是否是特定的区块链共享请求
@@ -182,16 +182,16 @@ const sendMessage = () => {
     userQuestion = addFormatRequirement(userQuestion)
   }
 
-  // 如果是“解决方案”请求，为其增加格式提示并标记样式
+  // 如果是"解决方案"请求，为其增加格式提示并标记样式
   if (newMessage.value.includes('解决方案')) {
     currentMessageType.value = 'solution'
-    const solutionFormatGuide = `\n\n请以“解决方案蓝皮书”风格输出，要求如下：\n\n- 使用分节标题（建议使用二级标题），不要数字编号，例如：- 每个分节下用若干条目说明，条目以列表呈现；条目里的关键短语采用“关键字：说明”形式，关键字加粗，例如：\n  - **日志轮替**：说明\n  - **日志级别调整**：说明\n  - **外部日志服务器**：说明\n- 严格使用中文全角冒号“：”。`
+    const solutionFormatGuide = `\n\n请以"解决方案蓝皮书"风格输出，要求如下：\n\n- 使用分节标题（建议使用二级标题），不要数字编号，例如：- 每个分节下用若干条目说明，条目以列表呈现；条目里的关键短语采用"关键字：说明"形式，关键字加粗，例如：\n  - **日志轮替**：说明\n  - **日志级别调整**：说明\n  - **外部日志服务器**：说明\n- 严格使用中文全角冒号"："。`
     userQuestion += solutionFormatGuide
   } else {
     currentMessageType.value = ''
   }
 
-  // 如果是“整合安全报告”，也套用解决方案样式，确保报告中的解决方案部分按图片样式输出
+  // 如果是"整合安全报告"，也套用解决方案样式，确保报告中的解决方案部分按图片样式输出
   if (newMessage.value.includes('将上面的所有结果整合成一个安全报告')) {
     currentMessageType.value = 'solution'
   }
@@ -219,7 +219,7 @@ const sendMessage = () => {
   fetchAndStreamResponse(userQuestion, historyMessage, signal)
 }
 
-// 解析并保存“网关中xxx为xxx，…”格式到后端
+// 解析并保存"网关中xxx为xxx，…"格式到后端
 const trySaveAiInput = (text) => {
   if (!text) return
   const match = text.match(/^\s*网关中(.+?)为\s*([^，,。\s]+)\s*[，,。]?/)
@@ -238,14 +238,6 @@ const trySaveAiInput = (text) => {
   )
 
   saveAiInput({ dataType, dataValue, deviceId })
-    .then(() => {
-      console.log('AI输入已保存，deviceId:', deviceId)
-      ElMessage.success(`已提交到后端：类型「${dataType}」，值「${dataValue}」，设备ID ${deviceId}`)
-    })
-    .catch((e) => {
-      console.error('保存AI输入失败:', e)
-      ElMessage.error('保存AI输入失败，请稍后重试')
-    })
 }
 
 // 处理区块链共享请求
@@ -352,7 +344,7 @@ const addFormatRequirement = (question) => {
   // 检查是否是安全报告整合请求
   if (question.includes('报告') && question.includes('整合') && question.includes('安全')) {
     // 安全报告的固定格式要求
-    // 设备潜在风险优先取第一条分析的“异常问题+故障预测”，否则退回当前缓存中的预测
+    // 设备潜在风险优先取第一条分析的"异常问题+故障预测"，否则退回当前缓存中的预测
     const riskText =
       analysisProblems.value || analysisPredictions.value
         ? `${analysisProblems.value}\n\n${analysisPredictions.value}`.trim()
@@ -423,7 +415,7 @@ const addFormatRequirement = (question) => {
       ? `\n${alertContent.value.solutions}\n`
       : '\n[应对措施的详细讲解]\n'
 
-    const threatReportFormat = `\n\n请按照以下结构输出“安全威胁报告”，内容尽量具体、可执行：
+    const threatReportFormat = `\n\n请按照以下结构输出"安全威胁报告"，内容尽量具体、可执行：
 安全威胁报告：[事件名称]
 
 ## **一、攻击分析**
@@ -530,7 +522,7 @@ const processStream = (body) => {
 
   const processChunk = (chunk) => {
     if (chunk.done) {
-      console.log('流结束')
+      console.log('ai返回结果流结束')
       handleStreamClose()
       return
     }
@@ -634,7 +626,31 @@ const handleStreamClose = () => {
     // 检测内容中是否包含异常问题和故障预测
     detectAnomalyAndFaults(cleanContent)
 
-    // 已移除：将AI回答发送到后端保存
+    // === 新增：自动保存资源安全报告 ===
+    if (lastUserMessageIsResourceReport() && cleanContent.startsWith('安全报告:')) {
+      const reportName = extractReportName(cleanContent)
+      const content = extractReportContent(cleanContent)
+      const gatewayName = 'gateway1'
+      const reportTime = Date.now()
+      const id = generateUniqueId()
+
+      console.log('准备保存资源安全报告', { id, reportName, gatewayName, content, reportTime });
+      saveResourceReport({
+        id,
+        reportName,
+        gatewayName,
+        content,
+        reportTime,
+      })
+        .then((res) => {
+          console.log('资源安全报告保存成功', res);
+          ElMessage.success('资源安全报告已保存')
+        })
+        .catch((err) => {
+          console.error('资源安全报告保存失败', err);
+          ElMessage.error('资源安全报告保存失败')
+        })
+    }
 
     nextTick(() => {
       scrollToBottom()
@@ -645,6 +661,30 @@ const handleStreamClose = () => {
       addErrorMsg('抱歉，未获取到有效响应。')
     }
   }
+}
+
+// 判断是否为"整合安全报告"请求
+function lastUserMessageIsResourceReport() {
+  const lastUserMsg = messages.value.filter(m => m.role === 'user').pop()
+  return lastUserMsg && lastUserMsg.content.includes('将上面的所有结果整合成一个安全报告')
+}
+
+// 提取报告名称
+function extractReportName(content) {
+  // 匹配"安全报告: xxx"或"安全报告：xxx"
+  const match = content.match(/^安全报告[:：]\s*(.+)/)
+  return match ? match[1].split('\n')[0].trim() : '未命名报告'
+}
+
+// 提取正文（去掉第一行标题，保留所有分节标题和内容）
+function extractReportContent(content) {
+  // 去掉第一行（安全报告: xxx），保留后面所有内容
+  return content.replace(/^安全报告[:：].+\n?/, '').trim()
+}
+
+// 生成唯一ID
+function generateUniqueId() {
+  return 'R' + Date.now() + Math.floor(Math.random() * 10000)
 }
 
 // 添加检测异常和故障预测的函数
@@ -677,8 +717,7 @@ const detectAnomalyAndFaults = (content) => {
   const attackType = attackTypeSections.join('\n\n')
   const attackerProfile = attackerProfileSections.join('\n\n')
 
-  console.log('检测到的问题:', problems)
-  console.log('检测到的预测:', predictions)
+
 
   // 更新缓存（供报告整合注入使用）
   if (problems || predictions || solutions) {
@@ -689,7 +728,7 @@ const detectAnomalyAndFaults = (content) => {
       solutions: solutions || '',
     }
 
-    // 若是第一次分析类回复，缓存“异常问题+故障预测”作为报告的设备潜在风险来源
+    // 若是第一次分析类回复，缓存"异常问题+故障预测"作为报告的设备潜在风险来源
     const alreadyCached = analysisProblems.value || analysisPredictions.value
     if (!alreadyCached) {
       analysisProblems.value = problems || ''
@@ -704,7 +743,7 @@ const detectAnomalyAndFaults = (content) => {
     saveAnomalyResults(problems, predictions, solutions)
   }
 
-  // 缓存攻击情报片段（即便不弹框也缓存，供后续“安全威胁报告”注入）
+  // 缓存攻击情报片段（即便不弹框也缓存，供后续"安全威胁报告"注入）
   if (attackAnalysis) attackAnalysisCache.value = attackAnalysis
   if (attackType) attackTypeCache.value = attackType
   if (attackerProfile) attackerProfileCache.value = attackerProfile
@@ -942,7 +981,7 @@ const extractStructuredContent = (content) => {
           break
         }
       }
-      // 先判断是否为解决方案（优先级高于预测，避免“包含可能/风险”等词误归类到预测）
+      // 先判断是否为解决方案（优先级高于预测，避免"包含可能/风险"等词误归类到预测）
       if (!isProblem) {
         for (const keyword of solutionKeywords) {
           if (para.includes(keyword)) {
@@ -976,7 +1015,7 @@ const extractStructuredContent = (content) => {
       ) {
         isProblem = /(当前|目前|现在|检测到|发现|显示|存在)/.test(para)
         isPrediction = !isProblem && /(可能|潜在|预计|未来|将会|如果|有可能)/.test(para)
-        // 列表项中若出现“建议/措施/优化/修复/处理/应对/处置”等，更倾向判为解决方案
+        // 列表项中若出现"建议/措施/优化/修复/处理/应对/处置"等，更倾向判为解决方案
         if (!isProblem && !isPrediction && /(建议|措施|优化|修复|处理|应对|处置)/.test(para)) {
           isSolution = true
         }
@@ -1096,12 +1135,6 @@ const saveAnomalyResults = (anomalyText, predictionText, solutionText) => {
       anomalyProblem: anomalyText,
       predictedFailure: predictionText,
     })
-      .then(() => {
-        console.log('AI预警信息已成功保存到后端')
-      })
-      .catch((error) => {
-        console.error('保存AI预警失败:', error)
-      })
   } catch (error) {
     console.error('发送异常检测结果失败:', error)
   }

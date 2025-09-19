@@ -118,16 +118,18 @@ export function saveAiWarn({ anomalyProblem, predictedFailure }) {
 //接口：POST /report/addResourceReport
 //参数：id  reportName  gatewayName  content   reportTime
 export function saveResourceReport({ id, reportName, gatewayName, content, reportTime }) {
-  const form = new URLSearchParams()
-  form.append('id', id ?? '')
-  form.append('reportName', reportName ?? '')
-  form.append('gatewayName', gatewayName ?? '')
-  form.append('content', content ?? '')
-  form.append('reportTime', reportTime ?? '')
   return instance_fabric({
     url: '/report/addResourceReport',
     method: 'post',
-    data: form,
+    headers: { 'Content-Type': 'application/json' },
+    data: {
+      id,
+      reportName,
+      gatewayName,
+      content,
+      reportTime,
+      details: {},
+    },
   })
 }
 
@@ -135,15 +137,19 @@ export function saveResourceReport({ id, reportName, gatewayName, content, repor
 //接口：POST /report/addTrafficReport
 //参数：id  reportName  gatewayName  content   reportTime
 export function saveTrafficReport({ id, reportName, gatewayName, content, reportTime }) {
-  const form = new URLSearchParams()
-  form.append('id', id ?? '')
-  form.append('reportName', reportName ?? '')
-  form.append('gatewayName', gatewayName ?? '')
-  form.append('content', content ?? '')
-  form.append('reportTime', reportTime ?? '')
   return instance_fabric({
     url: '/report/addTrafficReport',
     method: 'post',
-    data: form,
+    headers: { 'Content-Type': 'application/json' },
+    data: {
+      id,
+      reportName,
+      gatewayName,
+      content,
+      reportTime,
+      details: {},
+    },
   })
 }
+
+

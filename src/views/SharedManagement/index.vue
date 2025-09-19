@@ -25,7 +25,7 @@ const  fetchReports = async () => {
   try {
     // 获取流量安全报告
     const resTraffic = await getTrafficReports()
-    console.log(resTraffic);
+    console.log('流量安全报告',resTraffic);
 
     if (resTraffic && resTraffic.data && Array.isArray(resTraffic.data.data)) {
       trafficReports.value = resTraffic.data.data
@@ -33,7 +33,7 @@ const  fetchReports = async () => {
 
     // 获取资源安全报告
     const resResource = await getResourceReports()
-    console.log(resResource);
+    console.log('资源安全报告',resResource);
     if (resResource && resResource.data && Array.isArray(resResource.data.data)) {
       resourceReports.value = resResource.data.data
     }
@@ -41,7 +41,6 @@ const  fetchReports = async () => {
     ElMessage.error('报告数据获取失败')
   }
 }
-
 
 
 
@@ -60,9 +59,9 @@ const paginatedReports = computed(() => {
     emptyRows.push({
       id: `empty-${i}`,
       isEmpty: true,
-      date: '',
-      name: '',
-      gateway: '',
+      reportTime: '',
+      reportName: '',
+      gatewayName: '',
       fileUrl: '',
     })
   }
@@ -114,7 +113,6 @@ onMounted(() => {
   <bg-image1>
     <!-- 头部页头 -->
     <Header />
-
     <!-- 主体内容 -->
     <div class="report-management-container">
       <!-- 标题区域 -->
@@ -149,19 +147,21 @@ onMounted(() => {
                 }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="date" label="时间" width="300" align="center">
+            <el-table-column prop="reportTime" label="时间" width="300" align="center">
+            <template #default="scope">
+              <span v-if="!scope.row.isEmpty">
+                {{ new Date(scope.row.reportTime).toLocaleString() }}
+              </span>
+            </template>
+          </el-table-column>
+            <el-table-column prop="reportName" label="报告名称" min-width="200" align="center">
               <template #default="scope">
-                <span v-if="!scope.row.isEmpty">{{ scope.row.date }}</span>
+                <span v-if="!scope.row.isEmpty">{{ scope.row.reportName }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="name" label="报告名称" min-width="200" align="center">
+            <el-table-column prop="gatewayName" label="所属网关" min-width="220" align="center">
               <template #default="scope">
-                <span v-if="!scope.row.isEmpty">{{ scope.row.name }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column prop="gateway" label="所属网关" min-width="220" align="center">
-              <template #default="scope">
-                <span v-if="!scope.row.isEmpty">{{ scope.row.gateway }}</span>
+                <span v-if="!scope.row.isEmpty">{{ scope.row.gatewayName }}</span>
               </template>
             </el-table-column>
             <el-table-column label="操作" width="200" align="center">
