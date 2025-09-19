@@ -3,6 +3,9 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getTrafficReports, getResourceReports } from '@/api/fabric'
+import html2pdf from 'html2pdf.js'
+import MarkdownIt from 'markdown-it'
+import { getResourceReportById, getTrafficReportById } from '@/api/fabric'
 
 // 路由
 const router = useRouter()
@@ -83,24 +86,71 @@ const getRowClassName = ({ row }) => {
   return row.isEmpty ? 'empty-row' : ''
 }
 
-// 下载报告
-const downloadReport = (report) => {
-  // 模拟下载过程
-  ElMessage({
-    type: 'success',
-    message: `正在下载报告: ${report.name || report.reportName}`,
-    duration: 2000,
-  })
+// 1. 顶部引入依赖
+// 2. 创建markdown-it实例
+const md = new MarkdownIt({ html: true, linkify: true, breaks: true })
 
-  setTimeout(() => {
-    const link = document.createElement('a')
-    link.href = report.fileUrl || '#'
-    link.setAttribute('download', report.name || report.reportName)
-    link.setAttribute('target', '_blank')
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-  }, 500)
+// 3. 下载并查看报告方法
+const downloadAndViewReport = async (report, type = 'resource') => {
+  try {
+    let res
+    if (type === 'resource') {
+      let id = report.id
+      if (typeof id === 'string' && id.startsWith('Resource_')) {
+        id = id.replace(/^Resource_/, '')
+      }
+      res = await getResourceReportById(id)
+    } else {
+      // 只在下载查看时处理id前缀，保留原始接口调用方式
+      let id = report.id
+      if (typeof id === 'string' && id.startsWith('Traffic_')) {
+        id = id.replace(/^Traffic_/, '')
+      }
+      res = await getTrafficReportById(id)
+    }
+    const content = res.data?.data?.content || ''
+    const reportName = res.data?.data?.reportName || '安全报告'
+    const reportTime = res.data?.data?.reportTime
+    // 格式化时间
+    const timeStr = reportTime ? new Date(reportTime).toLocaleString() : ''
+    // markdown转html
+    let html = md.render(content)
+    // 插入标题和时间，并美化样式
+    html = `
+      <div style="text-align:center;margin-bottom:28px;">
+        <h1 style="font-size:2.2em;margin-bottom:0.15em;">${reportName}</h1>
+        <div style="font-size:1.1em;color:#666;margin-bottom:1.1em;">${timeStr}</div>
+      </div>
+      <div class="pdf-content">${html}</div>
+      <style>
+        .pdf-content h2, .pdf-content h3, .pdf-content h4 {
+          margin-top: 1.2em;
+          margin-bottom: 0.7em;
+        }
+        .pdf-content p, .pdf-content ul, .pdf-content ol {
+          margin-bottom: 0.7em;
+        }
+        .pdf-content p, .pdf-content li {
+          text-indent: 2em;
+        }
+        .pdf-content {
+          font-size: 1.1em;
+          line-height: 1.8;
+          color: #222;
+        }
+      </style>
+    `
+    const element = document.createElement('div')
+    element.innerHTML = html
+    html2pdf().from(element).set({
+      margin: 10,
+      filename: reportName + '.pdf',
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    }).save()
+  } catch (e) {
+    ElMessage.error('报告获取失败')
+  }
 }
 
 
@@ -167,7 +217,7 @@ onMounted(() => {
             <el-table-column label="操作" width="200" align="center">
               <template #default="scope">
                 <div v-if="!scope.row.isEmpty" class="download-btn-container">
-                  <a class="download-btn" @click="downloadReport(scope.row)"> 下载查看 </a>
+                  <a class="download-btn" @click="downloadAndViewReport(scope.row, activeType)"> 下载查看 </a>
                 </div>
               </template>
             </el-table-column>

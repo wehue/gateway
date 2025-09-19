@@ -5,6 +5,8 @@ import MarkdownIt from 'markdown-it'
 import { streamChatWithAI, checkApiHealth, saveAiInput, saveAiWarn,saveResourceReport } from '@/api/ai'
 import { useRoute } from 'vue-router'
 
+const analysisProblems = ref('')
+const analysisPredictions = ref('')
 // 获取路由参数
 const route = useRoute()
 
@@ -49,7 +51,7 @@ const promptTemplates = [
   '将上面的所有结果整合成一个安全报告',
   '请对此次异常流量攻击进行溯源分析',
   '请将此次异常流量攻击分析总结成一个安全威胁报告',
-  '将上述安全报告共享到区块链平台中，并查看其他共享报告',
+  '将上述安全报告共享到区块链平台中',
 ]
 
 // 选择提示词
@@ -155,7 +157,7 @@ const sendMessage = () => {
   trySaveAiInput(newMessage.value)
 
   // 检查是否是特定的区块链共享请求
-  if (newMessage.value.includes('将上述安全报告共享到区块链平台中，并帮我查看其他共享报告')) {
+  if (newMessage.value.includes('将上述安全报告共享到区块链平台中')) {
     handleBlockchainShareRequest()
     newMessage.value = ''
     return
@@ -230,59 +232,104 @@ const trySaveAiInput = (text) => {
 
 // 处理区块链共享请求
 const handleBlockchainShareRequest = () => {
-  // 重置状态
-  isTyping.value = true
+  // 1. 查找最近一次AI生成的安全报告内容
+  const lastAiReportMsg = messages.value.filter(m => m.role === 'assistant' && m.content.startsWith('安全报告:')).pop();
+  if (lastAiReportMsg) {
+    const reportName = extractReportName(lastAiReportMsg.content)
+    const content = extractReportContent(lastAiReportMsg.content)
+    const gatewayName = 'gateway1'
+    const reportTime = Date.now()
+    const id = generateUniqueId()
+    saveResourceReport({
+      id,
+      reportName,
+      gatewayName,
+      content,
+      reportTime,
+    })
+      .then((res) => {
+        console.log('资源安全报告已保存', res);
+        ElMessage.success('资源安全报告已保存并已共享到区块链平台')
+        // 流式打字效果
+        const text = '安全报告已保存至区块链平台上';
+          streamingContent.value = '';
+          isTyping.value = true;
+          isStreaming.value = false;
 
-  // 生成随机的报告ID (c + 11位数字)
-  const reportId = 'c' + Math.floor(10000000000 + Math.random() * 90000000000)
-
-  // 延迟显示第一条消息（已验证身份）
-  setTimeout(() => {
-    isTyping.value = false
-    isStreaming.value = true
-    streamingContent.value = `1. 已验证身份，成功将您的安全威胁报告${reportId}共享到区块链平台！\n\n2. 现在我将检索区块链共享平台上的安全威胁情报，请稍候...`
-
-    // 延迟显示检索结果
-    setTimeout(() => {
-      // 准备模拟的共享报告列表
-      const sharedReports = [
-        { id: 'a6598255678', title: '恶意软件分析', date: '2024年6月12日' },
-        { id: 'f5265265432', title: '暴力破解尝试', date: '2024年5月28日' },
-        { id: reportId, title: 'DDoS攻击', date: '2024年6月13日' },
-        { id: 'a6549859478', title: '未授权访问警报', date: '2024年6月13日' },
-      ]
-
-      // 构建完整响应内容
-      let fullContent = `1. 已验证身份，成功将您的安全威胁报告${reportId}共享到区块链平台！\n\n2. 现在我将检索区块链共享平台上的安全威胁情报，请稍候...\n\n以下是从区块链平台获取的其他共享安全威胁报告：\n\n`
-
-      // 添加共享报告列表
-      sharedReports.forEach((report, index) => {
-        fullContent += `${index + 1}. ID: ${report.id},      标题: ${report.title},      日期: ${report.date}\n`
+          // 先只显示思考动画
+          setTimeout(() => {
+            isTyping.value = false;
+            isStreaming.value = true;
+            let idx = 0;
+            const typeInterval = setInterval(() => {
+              streamingContent.value += text[idx];
+              idx++;
+              nextTick(() => {
+                scrollToBottom();
+              });
+              if (idx >= text.length) {
+                clearInterval(typeInterval);
+                isStreaming.value = false;
+                // 先保存完整内容
+                const finalText = streamingContent.value;
+                messages.value.push({
+                  role: 'assistant',
+                  content: finalText,
+                  normal_content: finalText,
+                });
+                streamingContent.value = '';
+              }
+            }, 60);
+          }, 800); // 800ms思考时间，可根据需要调整
       })
-
-      // 更新流式内容
-      streamingContent.value = fullContent
-
-      // 延迟关闭流并添加到消息列表
-      setTimeout(() => {
-        isStreaming.value = false
-
-        const aiMsg = {
+      .catch((err) => {
+        console.error('资源安全报告保存失败', err);
+        ElMessage.error('资源安全报告保存失败')
+      })
+  } else {
+    ElMessage.warning('未找到可共享的安全报告，请先生成安全报告')
+    // AI流式打字效果提示
+    const text = '未找到可共享的安全报告，请先生成安全报告';
+    streamingContent.value = '';
+    isTyping.value = true;
+    let idx = 0;
+    const typeInterval = setInterval(() => {
+      streamingContent.value += text[idx];
+      idx++;
+      if (idx >= text.length) {
+        clearInterval(typeInterval);
+        isTyping.value = false;
+        messages.value.push({
           role: 'assistant',
-          content: fullContent,
-          normal_content: fullContent,
-        }
-        messages.value.push(aiMsg)
-
-        // 已移除：将AI回答发送到后端保存
-
-        nextTick(() => {
-          scrollToBottom()
-        })
-      }, 1000)
-    }, 2000)
-  }, 1500)
+          content: streamingContent.value,
+          normal_content: streamingContent.value,
+        });
+        streamingContent.value = '';
+      }
+    }, 60);
+  }
 }
+
+
+// 提取报告名称
+function extractReportName(content) {
+  // 匹配"安全报告: xxx"或"安全报告：xxx"
+  const match = content.match(/^安全报告[:：]\s*(.+)/)
+  return match ? match[1].split('\n')[0].trim() : '未命名报告'
+}
+
+// 提取正文（去掉第一行标题，保留所有分节标题和内容）
+function extractReportContent(content) {
+  // 去掉第一行（安全报告: xxx），保留后面所有内容
+  return content.replace(/^安全报告[:：].+\n?/, '').trim()
+}
+
+// 生成唯一ID
+function generateUniqueId() {
+  // 生成5位随机数字字符串
+  return Math.floor(10000 + Math.random() * 90000).toString();
+}
+
 
 // 判断问题是否与分析相关且需要特定格式
 const isAnalysisRelatedQuestion = (question) => {
@@ -510,7 +557,6 @@ const processStream = (body) => {
 
   const processChunk = (chunk) => {
     if (chunk.done) {
-      console.log('ai返回结果流结束')
       handleStreamClose()
       return
     }
@@ -614,32 +660,6 @@ const handleStreamClose = () => {
     // 检测内容中是否包含异常问题和故障预测
     detectAnomalyAndFaults(cleanContent)
 
-    // === 新增：自动保存资源安全报告 ===
-    if (lastUserMessageIsResourceReport() && cleanContent.startsWith('安全报告:')) {
-      const reportName = extractReportName(cleanContent)
-      const content = extractReportContent(cleanContent)
-      const gatewayName = 'gateway1'
-      const reportTime = Date.now()
-      const id = generateUniqueId()
-
-      console.log('准备保存资源安全报告', { id, reportName, gatewayName, content, reportTime });
-      saveResourceReport({
-        id,
-        reportName,
-        gatewayName,
-        content,
-        reportTime,
-      })
-        .then((res) => {
-          console.log('资源安全报告保存成功', res);
-          ElMessage.success('资源安全报告已保存')
-        })
-        .catch((err) => {
-          console.error('资源安全报告保存失败', err);
-          ElMessage.error('资源安全报告保存失败')
-        })
-    }
-
     nextTick(() => {
       scrollToBottom()
     })
@@ -651,29 +671,6 @@ const handleStreamClose = () => {
   }
 }
 
-// 判断是否为"整合安全报告"请求
-function lastUserMessageIsResourceReport() {
-  const lastUserMsg = messages.value.filter(m => m.role === 'user').pop()
-  return lastUserMsg && lastUserMsg.content.includes('将上面的所有结果整合成一个安全报告')
-}
-
-// 提取报告名称
-function extractReportName(content) {
-  // 匹配"安全报告: xxx"或"安全报告：xxx"
-  const match = content.match(/^安全报告[:：]\s*(.+)/)
-  return match ? match[1].split('\n')[0].trim() : '未命名报告'
-}
-
-// 提取正文（去掉第一行标题，保留所有分节标题和内容）
-function extractReportContent(content) {
-  // 去掉第一行（安全报告: xxx），保留后面所有内容
-  return content.replace(/^安全报告[:：].+\n?/, '').trim()
-}
-
-// 生成唯一ID
-function generateUniqueId() {
-  return 'R' + Date.now() + Math.floor(Math.random() * 10000)
-}
 
 // 添加检测异常和故障预测的函数
 const detectAnomalyAndFaults = (content) => {
