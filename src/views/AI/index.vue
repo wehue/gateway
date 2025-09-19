@@ -17,9 +17,6 @@ const md = new MarkdownIt({
   highlight: true,
 })
 
-// 设备信息
-const deviceInfo = ref(null)
-
 // 聊天相关状态
 const newMessage = ref('')
 const messages = ref([])
@@ -45,15 +42,6 @@ const alertContent = ref({
   problems: '',
   predictions: '',
 })
-
-// 记录第一条"分析类"回答中的风险内容（异常问题 + 故障预测）
-const analysisProblems = ref('')
-const analysisPredictions = ref('')
-
-// 缓存从前序 AI 回复中解析得到的情报片段
-const attackAnalysisCache = ref('')
-const attackTypeCache = ref('')
-const attackerProfileCache = ref('')
 
 // 预设的提示词列表
 const promptTemplates = [
