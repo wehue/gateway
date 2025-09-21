@@ -34,11 +34,6 @@ const generateCaptcha = async () => {
   }
 }
 
-// 真实验证码验证函数
-const validateCaptcha = (inputCaptcha) => {
-  return inputCaptcha === captchaCode.value
-}
-
 // 表单数据
 const loginForm = ref({
   username: '', // 用户名/学号
